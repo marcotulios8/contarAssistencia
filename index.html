@@ -122,16 +122,16 @@ footer{padding:18px;text-align:center;color:#98a2b3;font-size:11px}
     <div><h1>CONTROLE DE ASSISTÊNCIA</h1></div>
     <div>
       <div class="summary">
-        <div class="sumCard"><span>Sentados</span><b id="sumSeated">0 / 152</b></div>
-        <div class="sumCard"><span>Outros</span><b id="sumOther">0</b></div>
-        <div class="sumCard"><span>Total no local</span><b id="sumTotal">0</b></div>
+        <div class="sumCard"><span>Salão</span><b id="sumHall">0</b></div>
+        <div class="sumCard"><span>Zoom</span><b id="sumZoom">0</b></div>
+        <div class="sumCard"><span>Total</span><b id="sumGrandTotal">0</b></div>
       </div>
       <div class="toolbar">
         <button id="zoomIn">Zoom +</button>
         <button id="zoomOut">Zoom −</button>
         <button id="fit">Ajustar</button>
         <button id="center">Centralizar</button>
-        <button id="copy" class="dark">Copiar dados</button>
+        <button id="copy" class="dark">Copiar resumo</button>
         <button id="clear">Zerar</button>
       </div>
     </div>
@@ -168,15 +168,22 @@ footer{padding:18px;text-align:center;color:#98a2b3;font-size:11px}
     <div class="extraCard">
       <div class="sectionTitle">Pessoas fora dos assentos</div>
       <div class="extraList" id="extraList"></div>
+      <div class="sectionTitle" style="margin-top:14px">Assistência on-line</div>
+      <div class="extra" id="zoomCounter">
+        <div class="name">Zoom</div>
+        <button id="zoomMinus">−</button>
+        <div class="value" id="zoomValue">0</div>
+        <button id="zoomPlus">+</button>
+      </div>
       <div class="totalBox">
-        <span>Sentados</span><b id="rSeated">0</b>
-        <span>Outros</span><b id="rOther">0</b>
-        <span>Total no local</span><b id="rTotal">0</b>
+        <span>Salão</span><b id="rHall">0</b>
+        <span>Zoom</span><b id="rZoom">0</b>
+        <span>Total</span><b id="rGrandTotal">0</b>
       </div>
     </div>
 
     <div class="dataCard">
-      <div class="sectionTitle">Copiar / colar contagem</div>
+      <div class="sectionTitle">Backup da contagem</div>
       <div class="dataActions">
         <button id="paste">Colar</button>
         <button id="importBtn">Importar</button>
@@ -200,6 +207,7 @@ const extras = [
   "Indicadores","Som","Palco","Banheiro masculino",
   "Banheiro feminino","Área externa","Sala B"
 ];
+let zoomValue = 0;
 const extraValues = Object.fromEntries(extras.map(x=>[x,0]));
 
 function buildSeats(){
@@ -246,13 +254,19 @@ function buildExtras(){
 function allSeats(){return [...document.querySelectorAll(".seat")]}
 function refresh(){
   const seated=allSeats().filter(s=>s.dataset.state==="1").length;
-  const other=Object.values(extraValues).reduce((a,b)=>a+b,0);
-  document.getElementById("sumSeated").textContent=`${seated} / ${capacity}`;
-  document.getElementById("sumOther").textContent=other;
-  document.getElementById("sumTotal").textContent=seated+other;
-  document.getElementById("rSeated").textContent=seated;
-  document.getElementById("rOther").textContent=other;
-  document.getElementById("rTotal").textContent=seated+other;
+  const extrasTotal=Object.values(extraValues).reduce((a,b)=>a+b,0);
+  const hall=seated+extrasTotal;
+  const grandTotal=hall+zoomValue;
+
+  document.getElementById("sumHall").textContent=hall;
+  document.getElementById("sumZoom").textContent=zoomValue;
+  document.getElementById("sumGrandTotal").textContent=grandTotal;
+
+  document.getElementById("rHall").textContent=hall;
+  document.getElementById("rZoom").textContent=zoomValue;
+  document.getElementById("rGrandTotal").textContent=grandTotal;
+
+  document.getElementById("zoomValue").textContent=zoomValue;
   document.querySelectorAll("[data-extra]").forEach(el=>el.textContent=extraValues[el.dataset.extra]);
 
   for(const sec of ["1","2","3"]){
@@ -261,14 +275,32 @@ function refresh(){
     document.querySelector(`.sector[data-sector="${sec}"] .sectorFoot`).textContent=`Presentes: ${present} / ${list.length}`;
   }
 }
+function getDateBR(){
+  const d=new Date();
+  return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");
+}
+function makeSummary(){
+  const seated=allSeats().filter(s=>s.dataset.state==="1").length;
+  const extrasTotal=Object.values(extraValues).reduce((a,b)=>a+b,0);
+  const hall=seated+extrasTotal;
+  const total=hall+zoomValue;
+  return `Assistência ${getDateBR()}:
+
+Salão: ${hall}
+
+Zoom: ${zoomValue}
+------------
+Total: ${total}`;
+}
 function exportData(){
   return JSON.stringify({
-    version:2,
+    version:3,
     timestamp:new Date().toISOString(),
     seats:allSeats().map(s=>({
       sector:s.dataset.sector,row:+s.dataset.row,seat:+s.dataset.seat,state:+s.dataset.state
     })),
-    extras:extraValues
+    extras:extraValues,
+    zoom:zoomValue
   });
 }
 function importData(text){
@@ -281,22 +313,23 @@ function importData(text){
   if(obj.extras){
     extras.forEach(k=>extraValues[k]=Math.max(0,Number(obj.extras[k]||0)));
   }
+  zoomValue=Math.max(0,Number(obj.zoom||0));
   refresh(); save();
 }
-function save(){localStorage.setItem("assistencia_mobile_v2",exportData())}
+function save(){localStorage.setItem("assistencia_mobile_v3",exportData())}
 function restore(){
   try{
-    const x=localStorage.getItem("assistencia_mobile_v2");
+    const x=localStorage.getItem("assistencia_mobile_v3");
     if(x) importData(x);
   }catch{}
 }
 document.getElementById("copy").onclick=async()=>{
-  const txt=exportData();
+  const txt=makeSummary();
   dataBox.value=txt;
   try{
     await navigator.clipboard.writeText(txt);
     copy.textContent="Copiado ✓";
-    setTimeout(()=>copy.textContent="Copiar dados",1000);
+    setTimeout(()=>copy.textContent="Copiar resumo",1000);
   }catch{
     dataBox.focus(); dataBox.select(); document.execCommand("copy");
   }
@@ -313,11 +346,15 @@ document.getElementById("clear").onclick=()=>{
   if(confirm("Zerar toda a contagem?")){
     allSeats().forEach(s=>s.dataset.state="0");
     extras.forEach(k=>extraValues[k]=0);
+    zoomValue=0;
     refresh();save();
   }
 }
 
-buildSeats(); buildExtras(); restore(); refresh();
+buildSeats(); buildExtras();
+document.getElementById("zoomMinus").onclick=()=>{zoomValue=Math.max(0,zoomValue-1);refresh();save()};
+document.getElementById("zoomPlus").onclick=()=>{zoomValue++;refresh();save()};
+restore(); refresh();
 
 /* Pan e zoom */
 const viewport=document.getElementById("viewport");
