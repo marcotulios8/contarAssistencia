@@ -179,15 +179,6 @@ footer{padding:18px;text-align:center;color:#98a2b3;font-size:11px}
         <span>Total</span><b id="rGrandTotal">0</b>
       </div>
     </div>
-
-    <div class="dataCard">
-      <div class="sectionTitle">Backup da contagem</div>
-      <div class="dataActions">
-        <button id="paste">Colar</button>
-        <button id="importBtn">Importar</button>
-      </div>
-      <textarea id="dataBox" placeholder="Os dados copiados aparecerão aqui. Você também pode colar uma contagem anterior."></textarea>
-    </div>
   </aside>
 </main>
 <footer>Controle de Assistência</footer>
@@ -323,22 +314,13 @@ function restore(){
 }
 document.getElementById("copy").onclick=async()=>{
   const txt=makeSummary();
-  dataBox.value=txt;
   try{
     await navigator.clipboard.writeText(txt);
     copy.textContent="Copiado ✓";
     setTimeout(()=>copy.textContent="Copiar resumo",1000);
   }catch{
-    dataBox.focus(); dataBox.select(); document.execCommand("copy");
+    alert("Não foi possível copiar automaticamente. Tente novamente.");
   }
-}
-document.getElementById("paste").onclick=async()=>{
-  try{dataBox.value=await navigator.clipboard.readText()}
-  catch{dataBox.focus()}
-}
-document.getElementById("importBtn").onclick=()=>{
-  try{importData(dataBox.value);alert("Contagem importada.")}
-  catch{alert("Não foi possível importar esses dados.")}
 }
 document.getElementById("clear").onclick=()=>{
   if(confirm("Zerar toda a contagem?")){
