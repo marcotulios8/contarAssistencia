@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<title>Controle de Assistência</title>
+<style>
+:root{
+  --bg:#f3f4f6; --panel:#fff; --text:#111827; --muted:#6b7280; --line:#d1d5db;
+  --seat:#e5e7eb; --present:#22c55e; --empty:#ef4444; --doubt:#f59e0b;
+  --s1:#16a34a; --s2:#2563eb; --s3:#7c3aed;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);padding:10px}
+.header-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.title{font-weight:800;font-size:20px;margin-right:auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:120px;text-align:center}
+.card .label{font-size:12px;color:var(--muted)}
+.card .value{font-size:20px;font-weight:800}
+button{font:inherit}
+.btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;cursor:pointer}
+.btn.primary{background:#111827;color:#fff;border-color:#111827}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;padding:12px}
+#viewport{height:calc(100vh - 150px);min-height:560px;background:#e5e7eb;border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;touch-action:none}
+#canvas{position:absolute;left:0;top:0;width:1180px;height:900px;background:#fff;border-radius:14px;box-shadow:0 12px 35px rgba(0,0,0,.08);transform-origin:0 0;padding:24px}
+.stage{width:560px;margin:0 auto 35px;background:#4b5563;color:#fff;padding:18px;border-radius:0 0 20px 20px;text-align:center;font-weight:800;font-size:26px;letter-spacing:.04em}
+.room{display:grid;grid-template-columns:250px 56px 420px 56px 250px;gap:10px;align-items:start}
+.sector{padding:10px;border-radius:12px;background:#fafafa;border:1px solid #e5e7eb}
+.sector h3{margin:0 0 12px;color:#fff;border-radius:7px;padding:8px;text-align:center;font-size:16px}
+.s1 h3{background:var(--s1)} .s2 h3{background:var(--s2)} .s3 h3{background:var(--s3)}
+.aisle{height:620px;border:1px dashed #9ca3af;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:12px;writing-mode:vertical-rl}
+.row{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:9px}
+.rowlabel{width:28px;font-size:12px;font-weight:700;color:#4b5563;text-align:right;margin-right:3px}
+.seat{width:31px;height:31px;border-radius:7px;border:1px solid #9ca3af;background:var(--seat);font-size:10px;font-weight:700;cursor:pointer;user-select:none;-webkit-user-select:none}
+.seat[data-state="1"]{background:var(--present);color:white;border-color:#16a34a}
+.seat[data-state="2"]{background:var(--empty);color:white;border-color:#dc2626}
+.seat[data-state="3"]{background:var(--doubt);color:#422006;border-color:#d97706}
+.sector-total{margin-top:10px;border:1px solid var(--line);border-radius:9px;padding:8px;text-align:center;font-size:13px;background:#fff}
+.sidebar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;height:calc(100vh - 150px);min-height:560px;overflow:auto}
+.sidebar h2{font-size:16px;margin:4px 0 12px;text-align:center}
+.counter{display:grid;grid-template-columns:1fr 42px 48px 42px;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:10px;padding:9px;margin-bottom:8px}
+.counter .name{font-size:14px;font-weight:650}
+.counter .num{text-align:center;font-weight:800;font-size:18px}
+.counter button{height:34px;border:1px solid var(--line);background:#fff;border-radius:8px;font-size:19px}
+.summary{margin-top:14px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:10px}
+.sumrow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #dbeafe}
+.sumrow:last-child{border:0;font-weight:800}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-top:12px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid #999}
+.data{margin-top:12px}
+textarea{width:100%;min-height:100px;border:1px solid var(--line);border-radius:9px;padding:8px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+.small{font-size:12px;color:var(--muted);line-height:1.35}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;padding:8px}
+  #viewport{height:62vh;min-height:430px}
+  .sidebar{height:auto;min-height:0}
+  .title{width:100%}
+  .card{min-width:105px;flex:1}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-row">
+    <div class="title">CONTROLE DE ASSISTÊNCIA</div>
+    <div class="card"><div class="label">SENTADOS</div><div class="value" id="seatedTop">0 / 152</div></div>
+    <div class="card"><div class="label">OUTROS</div><div class="value" id="othersTop">0</div></div>
+    <div class="card"><div class="label">TOTAL NO LOCAL</div><div class="value" id="grandTop">0</div></div>
+  </div>
+  <div class="header-row" style="margin-top:8px">
+    <button class="btn" id="zoomIn">Zoom +</button><button class="btn" id="zoomOut">Zoom −</button>
+    <button class="btn" id="fit">Ajustar</button><button class="btn" id="center">Centralizar</button>
+    <button class="btn primary" id="copy">Copiar dados</button><button class="btn" id="clear">Zerar</button>
+  </div>
+</header>
+<div class="layout">
+  <div id="viewport"><div id="canvas">
+    <div class="stage">PALCO</div>
+    <div class="room">
+      <div class="sector s1" data-sector="1"><h3>SETOR 1</h3><div class="rows"></div><div class="sector-total">Presentes: <b class="stPresent">0</b> / 36</div></div>
+      <div class="aisle">CORREDOR</div>
+      <div class="sector s2" data-sector="2"><h3>SETOR 2</h3><div class="rows"></div><div class="sector-total">Presentes: <b class="stPresent">0</b> / 76</div></div>
+      <div class="aisle">CORREDOR</div>
+      <div class="sector s3" data-sector="3"><h3>SETOR 3</h3><div class="rows"></div><div class="sector-total">Presentes: <b class="stPresent">0</b> / 40</div></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#e5e7eb"></i>Não conferida</span>
+      <span><i style="background:#22c55e"></i>Presente</span>
+      <span><i style="background:#ef4444"></i>Vazia</span>
+      <span><i style="background:#f59e0b"></i>Dúvida</span>
+    </div>
+  </div></div>
+
+  <aside class="sidebar">
+    <h2>PESSOAS FORA DOS ASSENTOS</h2>
+    <div id="counters"></div>
+    <div class="summary">
+      <div class="sumrow"><span>Sentados</span><b id="sumSeated">0 / 152</b></div>
+      <div class="sumrow"><span>Outros</span><b id="sumOthers">0</b></div>
+      <div class="sumrow"><span>Total no local</span><b id="sumGrand">0</b></div>
+    </div>
+    <div class="data">
+      <div class="small">Use “Copiar dados” para transferir a contagem para outro aparelho. Cole o texto abaixo e importe.</div>
+      <textarea id="dataBox" placeholder="Cole aqui os dados copiados..."></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="paste">Colar</button><button class="btn" id="importBtn">Importar</button></div>
+    </div>
+  </aside>
+</div>
+<script>
+const layout={
+  1:[4,4,4,4,4,4,4,4,4],
+  2:[8,8,8,8,8,8,8,8,6,6],
+  3:[4,4,4,4,4,4,4,4,4,4]
+};
+const capacities={1:36,2:76,3:40};
+const extraNames=['Indicadores','Som','Palco','Banheiro masculino','Banheiro feminino','Área externa','Sala B'];
+const extras={};
+extraNames.forEach(n=>extras[n]=0);
+
+function buildSeats(){
+  Object.entries(layout).forEach(([sector,rows])=>{
+    const root=document.querySelector(`.sector[data-sector="${sector}"] .rows`);
+    rows.forEach((count,ri)=>{
+      const row=document.createElement('div');row.className='row';
+      const lab=document.createElement('div');lab.className='rowlabel';lab.textContent='F'+(ri+1);row.appendChild(lab);
+      for(let si=1;si<=count;si++){
+        const b=document.createElement('button');b.className='seat';b.dataset.state='0';b.dataset.sector=sector;b.dataset.row=ri+1;b.dataset.seat=si;b.textContent=si;
+        b.title=`Setor ${sector} · Fileira ${ri+1} · Cadeira ${si}`;
+        b.addEventListener('click',e=>{e.stopPropagation();b.dataset.state=(+b.dataset.state+1)%4;update();save();});
+        row.appendChild(b);
+      }
+      root.appendChild(row);
+    });
+  });
+}
+function buildCounters(){
+ const root=document.getElementById('counters');
+ extraNames.forEach(name=>{
+   const d=document.createElement('div');d.className='counter';d.innerHTML=`<div class="name">${name}</div><button data-op="-">−</button><div class="num">0</div><button data-op="+">+</button>`;
+   const num=d.querySelector('.num');
+   d.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{extras[name]=Math.max(0,extras[name]+(btn.dataset.op==='+'?1:-1));num.textContent=extras[name];update();save();});
+   d.dataset.name=name;root.appendChild(d);
+ });
+}
+function allSeats(){return [...document.querySelectorAll('.seat')]}
+function update(){
+ let seated=0;
+ [1,2,3].forEach(sec=>{
+   const ss=[...document.querySelectorAll(`.seat[data-sector="${sec}"]`)];
+   const p=ss.filter(x=>x.dataset.state==='1').length;seated+=p;
+   document.querySelector(`.sector[data-sector="${sec}"] .stPresent`).textContent=p;
+ });
+ const others=Object.values(extras).reduce((a,b)=>a+b,0), grand=seated+others;
+ seatedTop.textContent=`${seated} / 152`; othersTop.textContent=others; grandTop.textContent=grand;
+ sumSeated.textContent=`${seated} / 152`; sumOthers.textContent=others; sumGrand.textContent=grand;
+}
+function payload(){return {version:2,updated:new Date().toISOString(),seats:allSeats().map(s=>({sector:+s.dataset.sector,row:+s.dataset.row,seat:+s.dataset.seat,state:+s.dataset.state})),extras:{...extras}}}
+function save(){localStorage.setItem('controle-assistencia-v2',JSON.stringify(payload()))}
+function load(obj){
+ const map=new Map(obj.seats.map(x=>[`${x.sector}-${x.row}-${x.seat}`,x.state]));
+ allSeats().forEach(s=>{const k=`${s.dataset.sector}-${s.dataset.row}-${s.dataset.seat}`;if(map.has(k))s.dataset.state=String(map.get(k));});
+ if(obj.extras) Object.keys(extras).forEach(k=>extras[k]=Math.max(0,+obj.extras[k]||0));
+ document.querySelectorAll('.counter').forEach(d=>d.querySelector('.num').textContent=extras[d.dataset.name]);update();save();
+}
+copy.onclick=async()=>{const t=JSON.stringify(payload());dataBox.value=t;try{await navigator.clipboard.writeText(t);copy.textContent='Copiado ✓';setTimeout(()=>copy.textContent='Copiar dados',1000)}catch{dataBox.select();document.execCommand('copy')}};
+paste.onclick=async()=>{try{dataBox.value=await navigator.clipboard.readText()}catch{alert('Cole manualmente no campo abaixo.')}};
+importBtn.onclick=()=>{try{load(JSON.parse(dataBox.value));alert('Dados importados.')}catch{alert('Dados inválidos.')}};
+clear.onclick=()=>{if(confirm('Zerar todas as marcações e contadores?')){allSeats().forEach(s=>s.dataset.state='0');Object.keys(extras).forEach(k=>extras[k]=0);document.querySelectorAll('.counter .num').forEach(x=>x.textContent='0');update();save();}};
+
+// pan/zoom com suporte a iPhone
+const viewport=document.getElementById('viewport'), canvas=document.getElementById('canvas');
+let scale=.72,x=10,y=10,pointers=new Map(),lastDist=0,dragStart=null;
+function apply(){canvas.style.transform=`translate(${x}px,${y}px) scale(${scale})`}
+function fitView(){const sx=(viewport.clientWidth-20)/1180,sy=(viewport.clientHeight-20)/900;scale=Math.min(.95,sx,sy);x=(viewport.clientWidth-1180*scale)/2;y=10;apply()}
+function centerView(){x=(viewport.clientWidth-1180*scale)/2;y=10;apply()}
+zoomIn.onclick=()=>{scale=Math.min(2.5,scale*1.15);apply()};zoomOut.onclick=()=>{scale=Math.max(.28,scale/1.15);apply()};fit.onclick=fitView;center.onclick=centerView;
+viewport.addEventListener('pointerdown',e=>{viewport.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1)dragStart={px:e.clientX,py:e.clientY,x,y};});
+viewport.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===1 && dragStart && !e.target.classList.contains('seat')){x=dragStart.x+(e.clientX-dragStart.px);y=dragStart.y+(e.clientY-dragStart.py);apply();}
+ if(pointers.size===2){const p=[...pointers.values()];const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(lastDist){scale=Math.max(.28,Math.min(2.5,scale*d/lastDist));apply()}lastDist=d;}
+});
+function end(e){pointers.delete(e.pointerId);if(pointers.size<2)lastDist=0;if(pointers.size===0)dragStart=null}
+viewport.addEventListener('pointerup',end);viewport.addEventListener('pointercancel',end);
+viewport.addEventListener('wheel',e=>{e.preventDefault();scale=Math.max(.28,Math.min(2.5,scale*(e.deltaY<0?1.08:.92)));apply()},{passive:false});
+
+buildSeats();buildCounters();
+try{const s=localStorage.getItem('controle-assistencia-v2');if(s)load(JSON.parse(s));else update()}catch{update()}
+setTimeout(fitView,50);
+</script>
+</body>
+</html>
